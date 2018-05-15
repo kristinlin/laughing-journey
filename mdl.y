@@ -790,13 +790,11 @@ int main(int argc, char **argv) {
   
   yyin = fopen(argv[1],"r");
 
-  printf("HELLO?\n");
   yyparse();
   //COMMENT OUT PRINT_PCODE AND UNCOMMENT
   //MY_MAIN IN ORDER TO RUN YOUR CODE
-  printf("WHY\n");
-  print_pcode();
-  //my_main();
+  //print_pcode();
+  my_main();
 
   return 0;
 }
