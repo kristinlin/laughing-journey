@@ -55,7 +55,9 @@ void my_main() {
   
   printf("WHAT UP\n");
 
-  
+  struct matrix * transform = new_matrix(1, 1);
+  struct matrix * edges = new_matrix(1, 1);
+  struct matrix * polygons = new_matrix(1, 1);;
   
   int i;
   struct matrix *tmp;
@@ -121,14 +123,19 @@ void my_main() {
                  op[i].op.light.p->name,
                  op[i].op.light.c[0], op[i].op.light.c[1],
                  op[i].op.light.c[2]);
+	  light[LOCATION][0] = op[i].op.light.c[0];
+	  light[LOCATION][1] = op[i].op.light.c[1];
+	  light[LOCATION][2] = op[i].op.light.c[2];
           break;
         case AMBIENT:
           printf("Ambient: %6.2f %6.2f %6.2f",
                  op[i].op.ambient.c[0],
                  op[i].op.ambient.c[1],
                  op[i].op.ambient.c[2]);
+	  ambient.red = op[i].op.ambient.c[0];
+	  ambient.green = op[i].op.ambient.c[1];
+	  ambient.blue = op[i].op.ambient.c[2];
           break;
-
         case CONSTANTS:
           printf("Constants: %s",op[i].op.constants.p->name);
           break;
@@ -156,7 +163,15 @@ void my_main() {
             {
               printf("\tcs: %s",op[i].op.sphere.cs->name);
             }
-
+	  add_sphere( polygons,
+		      op[i].op.sphere.d[0],
+		      op[i].op.sphere.d[1],
+		      op[i].op.sphere.d[2],
+		      op[i].op.sphere.r, step_3d);
+	  matrix_mult(peek(systems), polygons);
+	  draw_polygons(polygons, t, zb,
+			view, light, ambient, areflect, dreflect, sreflect);
+	  polygons->lastcol = 0;
           break;
         case TORUS:
           printf("Torus: %6.2f %6.2f %6.2f r0=%6.2f r1=%6.2f",
@@ -171,7 +186,16 @@ void my_main() {
             {
               printf("\tcs: %s",op[i].op.torus.cs->name);
             }
-
+	  add_torus(polygons,
+		    op[i].op.torus.d[0],
+		    op[i].op.torus.d[1],
+		    op[i].op.torus.d[2],
+		    op[i].op.torus.r0,
+		    op[i].op.torus.r1, step_3d);
+	  matrix_mult(peek(systems), polygons);
+	  draw_polygons(polygons, t, zb,
+			view, light, ambient, areflect, dreflect, sreflect);
+	  polygons->lastcol = 0;
           break;
         case BOX:
           printf("Box: d0: %6.2f %6.2f %6.2f d1: %6.2f %6.2f %6.2f",
@@ -187,7 +211,15 @@ void my_main() {
             {
               printf("\tcs: %s",op[i].op.box.cs->name);
             }
-
+	  add_box(polygons,
+		  op[i].op.box.d0[0],op[i].op.box.d0[1],
+		  op[i].op.box.d0[2],
+		  op[i].op.box.d1[0],op[i].op.box.d1[1],
+		  op[i].op.box.d1[2]);
+	  matrix_mult(peek(systems), polygons);
+	  draw_polygons(polygons, t, zb,
+			view, light, ambient, areflect, dreflect, sreflect);
+	  polygons->lastcol = 0;
           break;
         case LINE:
           printf("Line: from: %6.2f %6.2f %6.2f to: %6.2f %6.2f %6.2f",
@@ -207,6 +239,14 @@ void my_main() {
             {
               printf("\n\tCS1: %s",op[i].op.line.cs1->name);
             }
+	  add_edge(edges,
+		   op[i].op.line.p0[0],op[i].op.line.p0[1],
+		   op[i].op.line.p0[1],
+		   op[i].op.line.p1[0],op[i].op.line.p1[1],
+		   op[i].op.line.p1[1]);
+	  matrix_mult(peek(systems), edges);
+	  draw_lines(edges, t, zb, ambient);
+	  edges->lastcol = 0;
           break;
         case MESH:
           printf("Mesh: filename: %s",op[i].op.mesh.name);
@@ -242,6 +282,11 @@ void my_main() {
             {
               printf("\tknob: %s",op[i].op.scale.p->name);
             }
+	  tmp = make_scale(op[i].op.scale.d[0],
+			   op[i].op.scale.d[1],
+			   op[i].op.scale.d[2]);
+	  matrix_mult(peek(systems), tmp);
+	  copy_matrix(tmp, peek(systems));
           break;
         case ROTATE:
           printf("Rotate: axis: %6.2f degrees: %6.2f",
@@ -251,6 +296,15 @@ void my_main() {
             {
               printf("\tknob: %s",op[i].op.rotate.p->name);
             }
+	  theta = theta * (M_PI / 180);
+	  if ( op[i].op.rotate.axis == 0 )
+	    tmp = make_rotX( theta );
+	  else if ( op[i].op.rotate.axis == 1 )
+	    tmp = make_rotY( theta );
+	  else
+	    tmp = make_rotZ( theta );
+	  matrix_mult(peek(systems), tmp);
+	  copy_matrix(tmp, peek(systems));
           break;
         case BASENAME:
           printf("Basename: %s",op[i].op.basename.p->name);
@@ -277,16 +331,18 @@ void my_main() {
           break;
         case PUSH:
           printf("Push");
-	  push();
+	  push(systems);
           break;
         case POP:
           printf("Pop");
+	  pop(systems);
           break;
         case GENERATE_RAYFILES:
           printf("Generate Ray Files");
           break;
         case SAVE:
           printf("Save: %s",op[i].op.save.p->name);
+	  save_extension(t, op[i].op.save.p->name );
           break;
         case SHADING:
           printf("Shading: %s",op[i].op.shading.p->name);
@@ -299,6 +355,7 @@ void my_main() {
           break;
         case DISPLAY:
           printf("Display");
+	  display(t);
           break;
         }
       printf("\n");
